@@ -122,6 +122,12 @@ class ChapterDto(
     @SerialName("link") val espUrl: String? = null,
     @SerialName("link_raw") val rawUrl: String? = null,
     @SerialName("create") val createdAt: Long?,
+    val versions: List<ChapterVersionDto> = emptyList(),
+)
+
+@Serializable
+class ChapterVersionDto(
+    val link: String,
 )
 
 @Serializable

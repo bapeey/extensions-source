@@ -17,6 +17,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import uy.kohesive.injekt.injectLazy
+import kotlin.toString
 
 @Source
 abstract class ManhwaWeb : HttpSource() {
@@ -129,19 +130,27 @@ abstract class ManhwaWeb : HttpSource() {
     override fun chapterListParse(response: Response): List<SChapter> {
         val result = json.decodeFromString<PayloadChapterDto>(response.body.string())
         val chapters = result.chapters.filterNot {
-            it.createdAt == null || (it.espUrl == null && it.rawUrl == null)
+            it.espUrl == null && it.rawUrl == null && it.versions.isEmpty()
         }.map { it.toSChapter(result.id, result.realId) }
 
-        return chapters.sortedByDescending { it.chapter_number }
+        return chapters.filterNotNull().sortedByDescending { it.chapter_number }
     }
 
-    private fun ChapterDto.toSChapter(id: String, realId: String) = SChapter.create().apply {
-        name = "Capítulo ${number.toString().removeSuffix(".0")}"
-        chapter_number = number
-        date_upload = createdAt ?: 0
-        val url = (espUrl ?: rawUrl!!).replace(id, realId)
-        setUrlWithoutDomain(url)
-        scanlator = if (espUrl != null) "Esp" else "Raw"
+    private fun ChapterDto.toSChapter(id: String, realId: String): SChapter? {
+        val url = (espUrl ?: rawUrl ?: versions.firstOrNull()?.link)?.replace(id, realId)
+        if (url == null) return null
+
+        return SChapter.create().apply {
+            name = "Capítulo ${number.toString().removeSuffix(".0")}"
+            chapter_number = number
+            date_upload = createdAt ?: 0
+            setUrlWithoutDomain(url)
+            scanlator = when {
+                espUrl != null -> "Esp"
+                rawUrl != null -> "Raw"
+                else -> "Unknown"
+            }
+        }
     }
 
     override fun pageListRequest(chapter: SChapter): Request {
