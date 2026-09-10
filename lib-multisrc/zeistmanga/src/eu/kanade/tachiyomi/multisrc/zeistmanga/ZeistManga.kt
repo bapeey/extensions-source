@@ -32,11 +32,17 @@ abstract class ZeistManga : KeiSource() {
 
     protected open val dateFormat = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
-    protected open val mangaCategory = "Series"
+    open fun apiUrl(feed: String = ""): HttpUrl.Builder {
+        val url = "$baseUrl/feeds/posts/default/".toHttpUrl().newBuilder()
 
-    open fun apiUrl(feed: String = mangaCategory): HttpUrl.Builder = "$baseUrl/feeds/posts/default/-/".toHttpUrl().newBuilder()
-        .addPathSegment(feed)
-        .addQueryParameter("alt", "json")
+        if (feed.isNotEmpty()) {
+            url.addPathSegment("-")
+            url.addPathSegment(feed)
+        }
+
+        url.addQueryParameter("alt", "json")
+        return url
+    }
 
     protected val intl = Intl(
         language = lang,
@@ -76,6 +82,19 @@ abstract class ZeistManga : KeiSource() {
             .addQueryParameter("orderby", orderBy)
             .addQueryParameter("max-results", (MAX_MANGA_RESULTS + 1).toString())
             .addQueryParameter("start-index", startIndex.toString())
+            .addQueryParameter(
+                "q",
+                buildString {
+                    append("{")
+                    includedCategories.forEach {
+                        append("label:$it ")
+                    }
+                    append("}")
+                    excludedCategories.forEach {
+                        append("-label:$it ")
+                    }
+                }.trim(),
+            )
             .build().toString()
     }
 
@@ -103,11 +122,37 @@ abstract class ZeistManga : KeiSource() {
         val url = searchMangaUrl(page, query)
 
         val searchUrl = if (query.isNotBlank()) {
-            url.addQueryParameter("q", query)
+            url.addQueryParameter(
+                "q",
+                buildString {
+                    append("{")
+                    includedCategories.forEach {
+                        append("label:$it ")
+                    }
+                    append("}")
+                    excludedCategories.forEach {
+                        append("-label:$it ")
+                    }
+                    append(query)
+                }.trim(),
+            )
                 .addQueryParameter("max-results", (MAX_MANGA_RESULTS + 1).toString())
                 .addQueryParameter("start-index", startIndex.toString())
         } else {
             filters.forEach { filter ->
+                url.addQueryParameter(
+                    "q",
+                    buildString {
+                        append("{")
+                        includedCategories.forEach {
+                            append("label:$it ")
+                        }
+                        append("}")
+                        excludedCategories.forEach {
+                            append("-label:$it ")
+                        }
+                    }.trim(),
+                )
                 when (filter) {
                     is StatusList -> {
                         url.addPathSegment(filter.selected.value)
@@ -134,18 +179,20 @@ abstract class ZeistManga : KeiSource() {
                 }
             }
             url
-        }.build().toString().replaceLast("q=", "q=label:$mangaCategory+")
+        }.build()
 
         return parseSearchManga(client.get(searchUrl))
     }
 
-    protected open val excludedCategories: List<String> = listOf("Anime", "Novel", "Novela")
+    // OR strategy
+    protected open val includedCategories: List<String> = listOf("Series", "Manga", "Manhwa", "Manhua", "Doujinshi", "Web Novel (JP)", "Web Novel (KR)", "Web Novel (CN)")
+
+    // AND strategy
+    protected open val excludedCategories: List<String> = listOf("Anime", "Novel", "Novela", "Chapter")
 
     open fun parseSearchManga(response: Response): MangasPage {
         val result = response.parseAs<ZeistMangaDto>()
         val mangas = result.feed?.entry.orEmpty()
-            .filter { it.category.orEmpty().any { category -> category.term == mangaCategory } }
-            .filterNot { it.category.orEmpty().any { category -> excludedCategories.contains(category.term) } }
             .map { it.toSManga(baseUrl) }
 
         val mangalist = mangas.toMutableList()
