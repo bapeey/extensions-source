@@ -5,16 +5,14 @@ plugins {
 }
 
 keiyoushi {
-    name = "Catharsis World"
-    versionCode = 101
+    name = "EternalMangas"
+    versionCode = 2
     contentWarning = ContentWarning.MIXED
     libVersion = "1.6"
+    theme = "iken"
 
     source {
+        baseUrl = "https://eternalmangas.org"
         lang = "es"
-        baseUrl {
-            custom("https://newcatharsis.dig-it.info")
-        }
-        versionId = 3
     }
 }

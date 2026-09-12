@@ -15,6 +15,7 @@ import keiyoushi.utils.asJsoup
 import keiyoushi.utils.parseAs
 import kotlinx.serialization.json.float
 import okhttp3.FormBody
+import okhttp3.Headers
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
@@ -23,6 +24,11 @@ import okhttp3.OkHttpClient
 abstract class CatharsisWorld : KeiSource() {
 
     private val apiUrl = "$baseUrl/api"
+
+    override fun Headers.Builder.configureHeaders() = apply {
+        set("X-FK-Sistema", "3")
+        set("x-api-key", "catharsis-secure-api-key-2026")
+    }
 
     override fun OkHttpClient.Builder.configureClient(): OkHttpClient.Builder = apply {
         rateLimit(3)
